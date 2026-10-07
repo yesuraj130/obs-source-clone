@@ -11,3 +11,18 @@
 # ignore generated files
 *.generated.*
 **/.Brewfile.lock.json
+
+# Web scaffolding & preview files
+package.json
+package-lock.json
+metadata.json
+vite.config.ts
+tsconfig.json
+tsconfig.node.json
+index.html
+src/index.css
+src/main.tsx
+src/App.tsx
+dist/
+node_modules/
+.vite/

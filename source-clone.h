@@ -9,6 +9,7 @@ enum clone_type {
 	CLONE_SOURCE,
 	CLONE_CURRENT_SCENE,
 	CLONE_PREVIOUS_SCENE,
+	CLONE_PROGRAM_OUTPUT,
 };
 
 struct source_clone {

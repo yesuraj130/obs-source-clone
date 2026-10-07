@@ -225,6 +225,32 @@ void source_clone_update(void *data, obs_data_t *settings)
 			}
 			obs_source_release(source);
 		}
+	} else if (context->clone_type == CLONE_PROGRAM_OUTPUT) {
+		obs_source_t *source = NULL;
+		if (context->canvas) {
+			obs_canvas_t *canvas = obs_weak_canvas_get_canvas(context->canvas);
+			if (canvas) {
+				source = obs_canvas_get_channel(canvas, 0);
+				obs_canvas_release(canvas);
+			}
+		} else {
+			source = obs_get_output_source(0);
+		}
+		if (source == context->source) {
+			obs_source_release(source);
+			source = NULL;
+		}
+		if (source) {
+			uint32_t output_flags = obs_source_get_output_flags(source);
+			async = (output_flags & OBS_SOURCE_ASYNC) != 0;
+			custom_draw = (output_flags & OBS_SOURCE_CUSTOM_DRAW) != 0;
+			if (!obs_weak_source_references_source(context->clone, source) ||
+			    context->audio_enabled != audio_enabled) {
+				context->audio_enabled = audio_enabled;
+				source_clone_switch_source(context, source);
+			}
+			obs_source_release(source);
+		}
 	}
 	context->audio_enabled = audio_enabled;
 	if (active_clone != context->active_clone) {
@@ -426,6 +452,7 @@ obs_properties_t *source_clone_properties(void *data)
 	obs_property_list_add_int(p, obs_module_text("Source"), CLONE_SOURCE);
 	obs_property_list_add_int(p, obs_module_text("CurrentScene"), CLONE_CURRENT_SCENE);
 	obs_property_list_add_int(p, obs_module_text("PreviousScene"), CLONE_PREVIOUS_SCENE);
+	obs_property_list_add_int(p, obs_module_text("ProgramOutput"), CLONE_PROGRAM_OUTPUT);
 
 	obs_property_set_modified_callback2(p, source_clone_type_changed, data);
 
@@ -558,7 +585,9 @@ void source_clone_video_render(void *data, gs_effect_t *effect)
 		return;
 	context->rendering = true;
 	obs_source_t *source = obs_weak_source_get_source(context->clone);
-	if (!source) {
+	if (!source || source == context->source) {
+		if (source)
+			obs_source_release(source);
 		context->rendering = false;
 		return;
 	}
@@ -761,6 +790,27 @@ void source_clone_video_tick(void *data, float seconds)
 			}
 		}
 		obs_source_release(source);
+	} else if (context->clone_type == CLONE_PROGRAM_OUTPUT) {
+		obs_source_t *source = NULL;
+		if (context->canvas) {
+			obs_canvas_t *canvas = obs_weak_canvas_get_canvas(context->canvas);
+			if (canvas) {
+				source = obs_canvas_get_channel(canvas, 0);
+				obs_canvas_release(canvas);
+			}
+		} else {
+			source = obs_get_output_source(0);
+		}
+		if (source == context->source) {
+			obs_source_release(source);
+			source = NULL;
+		}
+		if (source) {
+			if (!obs_weak_source_references_source(context->clone, source)) {
+				source_clone_switch_source(context, source);
+			}
+			obs_source_release(source);
+		}
 	}
 	if (context->buffer_frame > 0) {
 		uint32_t cx = context->buffer_frame;
