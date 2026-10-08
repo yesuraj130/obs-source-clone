@@ -178,51 +178,6 @@ obs_properties_t *source_clone_properties(void *data)
 	return props;
 }
 
-static const char *get_tech_name_and_multiplier(enum gs_color_space current_space, enum gs_color_space source_space,
-						float *multiplier)
-{
-	const char *tech_name = "Draw";
-	*multiplier = 1.f;
-
-	switch (source_space) {
-	case GS_CS_SRGB:
-	case GS_CS_SRGB_16F:
-		switch (current_space) {
-		case GS_CS_709_SCRGB:
-			tech_name = "DrawMultiply";
-			*multiplier = obs_get_video_sdr_white_level() / 80.0f;
-		default:;
-		}
-		break;
-	case GS_CS_709_EXTENDED:
-		switch (current_space) {
-		case GS_CS_SRGB:
-		case GS_CS_SRGB_16F:
-			tech_name = "DrawTonemap";
-			break;
-		case GS_CS_709_SCRGB:
-			tech_name = "DrawMultiply";
-			*multiplier = obs_get_video_sdr_white_level() / 80.0f;
-		default:;
-		}
-		break;
-	case GS_CS_709_SCRGB:
-		switch (current_space) {
-		case GS_CS_SRGB:
-		case GS_CS_SRGB_16F:
-			tech_name = "DrawMultiplyTonemap";
-			*multiplier = 80.0f / obs_get_video_sdr_white_level();
-			break;
-		case GS_CS_709_EXTENDED:
-			tech_name = "DrawMultiply";
-			*multiplier = 80.0f / obs_get_video_sdr_white_level();
-		default:;
-		}
-	}
-
-	return tech_name;
-}
-
 void source_clone_video_render(void *data, gs_effect_t *effect)
 {
 	UNUSED_PARAMETER(effect);
@@ -238,23 +193,7 @@ void source_clone_video_render(void *data, gs_effect_t *effect)
 		if (!cx || !cy)
 			return;
 
-		const enum gs_color_space current_space = gs_get_color_space();
-		const enum gs_color_space tex_space = gs_texture_get_color_space(main_tex);
-		float multiplier;
-		const char *technique = get_tech_name_and_multiplier(current_space, tex_space, &multiplier);
-
-		gs_effect_t *eff = obs_get_base_effect(OBS_EFFECT_DEFAULT);
-		const bool previous = gs_framebuffer_srgb_enabled();
-		gs_enable_framebuffer_srgb(true);
-
-		gs_effect_set_texture_srgb(gs_effect_get_param_by_name(eff, "image"), main_tex);
-		gs_effect_set_float(gs_effect_get_param_by_name(eff, "multiplier"), multiplier);
-
-		while (gs_effect_loop(eff, technique)) {
-			gs_draw_sprite(main_tex, 0, cx, cy);
-		}
-
-		gs_enable_framebuffer_srgb(previous);
+		obs_source_draw(main_tex, 0, 0, cx, cy, false);
 		return;
 	}
 
