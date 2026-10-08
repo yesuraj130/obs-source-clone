@@ -15,16 +15,10 @@ static void source_clone_remove(void *data, calldata_t *cd)
 	if (source) {
 		if (obs_source_showing(context->source))
 			obs_source_dec_showing(source);
-		if (context->active_clone && obs_source_active(context->source))
-			obs_source_dec_active(source);
 		obs_source_release(source);
 	}
 	obs_weak_source_release(context->clone);
 	context->clone = NULL;
-	if (context->canvas) {
-		obs_weak_canvas_release(context->canvas);
-		context->canvas = NULL;
-	}
 }
 
 static void *source_clone_create(obs_data_t *settings, obs_source_t *source)
@@ -45,15 +39,9 @@ static void source_clone_destroy(void *data)
 	if (source) {
 		if (obs_source_showing(context->source))
 			obs_source_dec_showing(source);
-		if (context->active_clone && obs_source_active(context->source))
-			obs_source_dec_active(source);
 		obs_source_release(source);
 	}
 	obs_weak_source_release(context->clone);
-	if (context->canvas) {
-		obs_weak_canvas_release(context->canvas);
-		context->canvas = NULL;
-	}
 	bfree(context);
 }
 
@@ -63,16 +51,12 @@ void source_clone_switch_source(struct source_clone *context, obs_source_t *sour
 	if (prev_source) {
 		if (obs_source_showing(context->source))
 			obs_source_dec_showing(prev_source);
-		if (context->active_clone && obs_source_active(context->source))
-			obs_source_dec_active(prev_source);
 		obs_source_release(prev_source);
 	}
 	obs_weak_source_release(context->clone);
 	context->clone = source ? obs_source_get_weak_source(source) : NULL;
 	if (source && obs_source_showing(context->source))
 		obs_source_inc_showing(source);
-	if (source && context->active_clone && obs_source_active(context->source))
-		obs_source_inc_active(source);
 }
 
 void source_clone_load(void *data, obs_data_t *settings)
@@ -84,43 +68,13 @@ void source_clone_load(void *data, obs_data_t *settings)
 void source_clone_update(void *data, obs_data_t *settings)
 {
 	struct source_clone *context = data;
-	bool active_clone = obs_data_get_bool(settings, "active_clone");
 	context->clone_type = (enum clone_type)obs_data_get_int(settings, "clone_type");
 	bool async = true;
 	bool custom_draw = true;
-	const char *canvas_name = obs_data_get_string(settings, "canvas");
-	if (canvas_name && strlen(canvas_name)) {
-		obs_canvas_t *canvas = NULL;
-		if (context->canvas) {
-			canvas = obs_weak_canvas_get_canvas(context->canvas);
-			if (canvas && strcmp(obs_canvas_get_name(canvas), canvas_name) != 0) {
-				obs_canvas_release(canvas);
-				canvas = NULL;
-			}
-		}
-		if (!canvas) {
-			canvas = obs_get_canvas_by_name(canvas_name);
-			obs_weak_canvas_release(context->canvas);
-			context->canvas = canvas ? obs_canvas_get_weak_canvas(canvas) : NULL;
-		}
-		obs_canvas_release(canvas);
-	} else if (context->canvas) {
-		obs_weak_canvas_release(context->canvas);
-		context->canvas = NULL;
-	}
 
 	if (context->clone_type == CLONE_SOURCE) {
 		const char *source_name = obs_data_get_string(settings, "clone");
-		obs_source_t *source = NULL;
-		if (context->canvas) {
-			obs_canvas_t *canvas = obs_weak_canvas_get_canvas(context->canvas);
-			if (canvas) {
-				source = obs_canvas_get_source_by_name(canvas, source_name);
-				obs_canvas_release(canvas);
-			}
-		}
-		if (!source)
-			source = obs_get_source_by_name(source_name);
+		obs_source_t *source = obs_get_source_by_name(source_name);
 		if (source == context->source) {
 			obs_source_release(source);
 			source = NULL;
@@ -143,19 +97,6 @@ void source_clone_update(void *data, obs_data_t *settings)
 		}
 	}
 
-	if (active_clone != context->active_clone) {
-		if (obs_source_active(context->source)) {
-			obs_source_t *clone = obs_weak_source_get_source(context->clone);
-			if (clone) {
-				if (active_clone)
-					obs_source_inc_active(clone);
-				else
-					obs_source_dec_active(clone);
-				obs_source_release(clone);
-			}
-		}
-		context->active_clone = active_clone;
-	}
 	context->no_filter = obs_data_get_bool(settings, "no_filters") && !async && !custom_draw;
 }
 
@@ -174,39 +115,14 @@ static bool source_clone_list_add_source(void *data, obs_source_t *source)
 	return true;
 }
 
-static bool source_clone_list_add_canvas(void *data, obs_canvas_t *canvas)
-{
-	obs_property_t *p = data;
-	const char *name = obs_canvas_get_name(canvas);
-	obs_property_list_add_string(p, name, name);
-	return true;
-}
-
-static bool source_clone_list_add_canvas_scene(void *data, obs_canvas_t *canvas)
-{
-	struct add_source_data *d = data;
-	obs_canvas_enum_scenes(canvas, (bool (*)(void *, obs_source_t *))source_clone_list_add_source, d);
-	return true;
-}
-
 static bool source_clone_source_changed(void *priv, obs_properties_t *props, obs_property_t *property, obs_data_t *settings)
 {
 	UNUSED_PARAMETER(property);
 	UNUSED_PARAMETER(priv);
-	const char *canvas_name = obs_data_get_string(settings, "canvas");
 	const char *source_name = obs_data_get_string(settings, "clone");
 	bool async = true;
 	bool custom_draw = true;
-	obs_source_t *source = NULL;
-	if (canvas_name && strlen(canvas_name)) {
-		obs_canvas_t *canvas = obs_get_canvas_by_name(canvas_name);
-		if (canvas) {
-			source = obs_canvas_get_source_by_name(canvas, source_name);
-			obs_canvas_release(canvas);
-		}
-	}
-	if (!source)
-		source = obs_get_source_by_name(source_name);
+	obs_source_t *source = obs_get_source_by_name(source_name);
 	if (source) {
 		uint32_t output_flags = obs_source_get_output_flags(source);
 		async = (output_flags & OBS_SOURCE_ASYNC) != 0;
@@ -225,35 +141,12 @@ static bool source_clone_type_changed(void *priv, obs_properties_t *props, obs_p
 	UNUSED_PARAMETER(property);
 	const bool clone_source = obs_data_get_int(settings, "clone_type") == CLONE_SOURCE;
 	obs_property_set_visible(obs_properties_get(props, "clone"), clone_source);
-	obs_property_set_visible(obs_properties_get(props, "active_clone"), clone_source);
 
 	if (clone_source) {
 		source_clone_source_changed(priv, props, NULL, settings);
 	} else {
 		obs_property_set_visible(obs_properties_get(props, "no_filters"), false);
 	}
-	return true;
-}
-
-static bool source_clone_canvas_changed(void *priv, obs_properties_t *props, obs_property_t *property, obs_data_t *settings)
-{
-	UNUSED_PARAMETER(priv);
-	UNUSED_PARAMETER(property);
-	struct source_clone *context = priv;
-	obs_property_t *clone = obs_properties_get(props, "clone");
-	const char *canvas_name = obs_data_get_string(settings, "canvas");
-	obs_canvas_t *canvas = obs_get_canvas_by_name(canvas_name);
-	obs_property_list_clear(clone);
-
-	struct add_source_data d = { .prop = clone, .self = context ? context->source : NULL };
-	if (canvas) {
-		obs_canvas_enum_scenes(canvas, (bool (*)(void *, obs_source_t *))source_clone_list_add_source, &d);
-		obs_canvas_release(canvas);
-	} else {
-		obs_enum_scenes((bool (*)(void *, obs_source_t *))source_clone_list_add_source, &d);
-	}
-	obs_enum_sources((bool (*)(void *, obs_source_t *))source_clone_list_add_source, &d);
-	obs_property_list_insert_string(clone, 0, "", "");
 	return true;
 }
 
@@ -267,21 +160,14 @@ obs_properties_t *source_clone_properties(void *data)
 	obs_property_list_add_int(p, obs_module_text("ProgramOutput"), CLONE_PROGRAM_OUTPUT);
 	obs_property_set_modified_callback2(p, source_clone_type_changed, data);
 
-	p = obs_properties_add_list(props, "canvas", obs_module_text("Canvas"), OBS_COMBO_TYPE_LIST,
-				    OBS_COMBO_FORMAT_STRING);
-	obs_enum_canvases(source_clone_list_add_canvas, p);
-	obs_property_list_insert_string(p, 0, "", "");
-	obs_property_set_modified_callback2(p, source_clone_canvas_changed, data);
-
 	p = obs_properties_add_list(props, "clone", obs_module_text("Clone"), OBS_COMBO_TYPE_EDITABLE,
 				    OBS_COMBO_FORMAT_STRING);
 	struct add_source_data d = { .prop = p, .self = context ? context->source : NULL };
 	obs_enum_sources((bool (*)(void *, obs_source_t *))source_clone_list_add_source, &d);
-	obs_enum_canvases((bool (*)(void *, obs_canvas_t *))source_clone_list_add_canvas_scene, &d);
+	obs_enum_scenes((bool (*)(void *, obs_source_t *))source_clone_list_add_source, &d);
 	obs_property_list_insert_string(p, 0, "", "");
 	obs_property_set_modified_callback2(p, source_clone_source_changed, data);
 
-	obs_properties_add_bool(props, "active_clone", obs_module_text("ActiveClone"));
 	obs_properties_add_bool(props, "no_filters", obs_module_text("NoFilters"));
 
 	obs_properties_add_text(
@@ -472,30 +358,6 @@ void source_clone_hide(void *data)
 	obs_source_release(source);
 }
 
-void source_clone_activate(void *data)
-{
-	struct source_clone *context = data;
-	if (!context->clone || !context->active_clone)
-		return;
-	obs_source_t *source = obs_weak_source_get_source(context->clone);
-	if (!source)
-		return;
-	obs_source_inc_active(source);
-	obs_source_release(source);
-}
-
-void source_clone_deactivate(void *data)
-{
-	struct source_clone *context = data;
-	if (!context->clone || !context->active_clone)
-		return;
-	obs_source_t *source = obs_weak_source_get_source(context->clone);
-	if (!source)
-		return;
-	obs_source_dec_active(source);
-	obs_source_release(source);
-}
-
 void source_clone_save(void *data, obs_data_t *settings)
 {
 	struct source_clone *context = data;
@@ -527,8 +389,6 @@ struct obs_source_info source_clone_info = {
 	.get_height = source_clone_get_height,
 	.show = source_clone_show,
 	.hide = source_clone_hide,
-	.activate = source_clone_activate,
-	.deactivate = source_clone_deactivate,
 	.get_properties = source_clone_properties,
 };
 
