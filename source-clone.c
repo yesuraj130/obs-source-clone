@@ -331,6 +331,19 @@ struct obs_source_info source_clone_info = {
 	.get_properties = source_clone_properties,
 };
 
+OBS_DECLARE_MODULE()
+OBS_MODULE_AUTHOR("Exeldro");
+OBS_MODULE_USE_DEFAULT_LOCALE("source-clone", "en-US")
+MODULE_EXPORT const char *obs_module_description(void)
+{
+	return obs_module_text("Description");
+}
+
+MODULE_EXPORT const char *obs_module_name(void)
+{
+	return obs_module_text("SourceClone");
+}
+
 bool obs_module_load(void)
 {
 	blog(LOG_INFO, "[Source Clone] loaded version %s", PROJECT_VERSION);
