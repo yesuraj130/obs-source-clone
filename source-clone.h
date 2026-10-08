@@ -2,8 +2,6 @@
 
 #include "version.h"
 #include <obs-module.h>
-#include <util/deque.h>
-#include <util/threading.h>
 
 enum clone_type {
 	CLONE_SOURCE,
@@ -18,16 +16,9 @@ struct source_clone {
 	obs_weak_canvas_t *canvas;
 	obs_weak_source_t *clone;
 	obs_weak_source_t *current_scene;
-	struct audio_wrapper_info *audio_wrapper;
-	struct deque audio_data[MAX_AUDIO_CHANNELS];
-	struct deque audio_frames;
-	struct deque audio_timestamps;
-	uint64_t audio_ts;
-	size_t num_channels;
-	pthread_mutex_t audio_mutex;
+	obs_weak_source_t *previous_scene;
 	gs_texrender_t *render;
 	bool processed_frame;
-	bool audio_enabled;
 	uint8_t buffer_frame;
 	uint32_t cx;
 	uint32_t cy;
@@ -37,4 +28,5 @@ struct source_clone {
 	bool rendering;
 	bool active_clone;
 	bool no_filter;
+	bool is_recursive;
 };

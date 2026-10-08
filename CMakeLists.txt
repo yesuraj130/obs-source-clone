@@ -38,9 +38,7 @@ endif()
 
 target_sources(${PROJECT_NAME} PRIVATE
 	source-clone.c
-	audio-wrapper.c
 	source-clone.h
-	audio-wrapper.h
 	version.h)
 
 if(BUILD_OUT_OF_TREE)
