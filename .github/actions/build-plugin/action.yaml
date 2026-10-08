@@ -44,6 +44,7 @@ runs:
         if [[ '${{ inputs.codesign }}' == 'true' ]] build_args+=(--codesign)
 
         git fetch origin --no-tags --no-recurse-submodules -q
+        chmod +x .github/scripts/build-macos 2>/dev/null || true
         .github/scripts/build-macos ${build_args}
 
     - name: Install Dependencies 🛍️
@@ -82,6 +83,7 @@ runs:
         )
         if (( ${+RUNNER_DEBUG} )) build_args+=(--debug)
 
+        chmod +x .github/scripts/build-ubuntu 2>/dev/null || true
         .github/scripts/build-ubuntu ${build_args}
 
     - name: Run Windows Build
