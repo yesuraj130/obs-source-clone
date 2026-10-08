@@ -11,9 +11,7 @@ enum clone_type {
 struct source_clone {
 	obs_source_t *source;
 	enum clone_type clone_type;
-	obs_weak_canvas_t *canvas;
 	obs_weak_source_t *clone;
 	bool rendering;
-	bool active_clone;
 	bool no_filter;
 };
