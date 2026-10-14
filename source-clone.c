@@ -180,6 +180,7 @@ obs_properties_t *source_clone_properties(void *data)
 
 void source_clone_video_render(void *data, gs_effect_t *effect)
 {
+	UNUSED_PARAMETER(effect);
 	struct source_clone *context = data;
 
 	if (context->clone_type == CLONE_PROGRAM_OUTPUT) {
@@ -192,21 +193,12 @@ void source_clone_video_render(void *data, gs_effect_t *effect)
 		if (!cx || !cy)
 			return;
 
-		gs_effect_t *cur_effect = gs_get_effect();
-		if (cur_effect) {
+		gs_effect_t *default_effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
+		while (gs_effect_loop(default_effect, "Draw")) {
 			obs_source_draw(main_tex, 0, 0, cx, cy, false);
-		} else {
-			cur_effect = effect ? effect : obs_get_base_effect(OBS_EFFECT_DEFAULT);
-			if (!cur_effect)
-				return;
-			while (gs_effect_loop(cur_effect, "Draw")) {
-				obs_source_draw(main_tex, 0, 0, cx, cy, false);
-			}
 		}
 		return;
 	}
-
-	UNUSED_PARAMETER(effect);
 
 	if (!context->clone)
 		return;
